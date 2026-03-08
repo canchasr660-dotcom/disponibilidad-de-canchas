@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Reservas</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f8;padding:20px;}
+.container{max-width:1000px;margin:auto;background:white;padding:20px;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+h2{text-align:center;color:#1e7f3f;margin-bottom:20px;}
+input, button, select{padding:8px;margin:5px;border-radius:5px;border:1px solid #ccc;font-size:16px;}
+button{background:#1e7f3f;color:white;border:none;cursor:pointer;}
+button:hover{opacity:0.9;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th, td{border:1px solid #ccc;padding:8px;text-align:center;}
+td[contenteditable="true"]{background:#f9f9f9;}
+.message{margin-top:15px;font-weight:bold;color:#1e4d2b;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>Admin - Reservas por Hora</h2>
+
+<!-- Login -->
+<div id="loginDiv">
+  <input type="password" id="password" placeholder="Ingresa la contraseña">
+  <button onclick="login()">Ingresar</button>
+  <button onclick="mostrarEntrada()">Ver</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
+
+<!-- Selección de fecha -->
+<div id="fechaDiv" class="hidden">
+  <label>Selecciona la fecha:</label>
+  <input type="date" id="fechaReserva">
+  <button onclick="mostrarTabla()">Confirmar</button>
+</div>
+
+<!-- Tabla editable -->
+<div id="adminDiv" class="hidden">
+  <label>Cliente:</label>
+  <input type="text" id="nombreCliente" placeholder="Nombre del cliente">
+
+  <label>Hora:</label>
+  <select id="horaReserva">
+    <option value="18:00">18:00</option>
+    <option value="19:00">19:00</option>
+    <option value="20:00">20:00</option>
+    <option value="21:00">21:00</option>
+    <option value="22:00">22:00</option>
+  </select>
+
+  <label>Fútbol:</label>
+  <select id="tipoFutbol">
+    <option value="5">Fútbol 5 (ocupa 1 cancha)</option>
+    <option value="7">Fútbol 7 (ocupa 2 canchas)</option>
+    <option value="11">Fútbol 11 (ocupa 3 canchas)</option>
+  </select>
+
+  <button onclick="agregarFila()">Agregar reserva</button>
+
+  <p class="message" id="message">Máximo 4 canchas disponibles por hora.</p>
+
+  <table id="tablaReservas">
+    <tr>
+      <th>Cliente</th>
+      <th>18:00</th>
+      <th>19:00</th>
+      <th>20:00</th>
+      <th>21:00</th>
+      <th>22:00</th>
+      <th>Acción</th>
+    </tr>
+  </table>
+</div>
+</div>
+
+<script>
+const PASSWORD = "1968";
+const totalCanchas = 4;
+const horas = ["18:00","19:00","20:00","21:00","22:00"];
+let ocupacionPorHora = {"18:00":0,"19:00":0,"20:00":0,"21:00":0,"22:00":0};
+let fechaActual = null;
+
+// Login
+function login(){
+  const pass = document.getElementById('password').value;
+  if(pass === PASSWORD){
+    document.getElementById('loginDiv').classList.add('hidden');
+    document.getElementById('fechaDiv').classList.remove('hidden');
+    document.getElementById('loginMsg').textContent = "";
+  } else{
+    document.getElementById('loginMsg').textContent = "Contraseña incorrecta";
+  }
+}
+
+// Ver input
+function mostrarEntrada(){
+  const entrada = document.getElementById('password').value;
+  alert("Lo que escribiste: " + entrada);
+}
+
+// Mostrar tabla tras seleccionar fecha
+function mostrarTabla(){
+  const fecha = document.getElementById('fechaReserva').value;
+  if(!fecha){ alert("Selecciona una fecha"); return; }
+  fechaActual = fecha;
+  document.getElementById('fechaDiv').classList.add('hidden');
+  document.getElementById('adminDiv').classList.remove('hidden');
+  cargarReservas();
+}
+
+// Calcular ocupación en una hora para la fecha actual
+function ocupacionHora(hora){
+  let total = 0;
+  const filas = document.querySelectorAll("#tablaReservas tr");
+  for(let i=1;i<filas.length;i++){
+    const idx = horas.indexOf(hora)+1;
+    const val = filas[i].cells[idx].textContent.trim();
+    if(val==="5") total+=1;
+    else if(val==="7") total+=2;
+    else if(val==="11") total+=3;
+  }
+  return total;
+}
+
+// Guardar reservas en localStorage
+function guardarReservas(){
+  if(!fechaActual) return;
+  const filas = document.querySelectorAll("#tablaReservas tr");
+  let data = [];
+  for(let i=1;i<filas.length;i++){
+    const fila = filas[i];
+    let filaData = {cliente:fila.cells[0].textContent};
+    horas.forEach((h,j)=>{
+      filaData[h] = fila.cells[j+1].textContent;
+    });
+    data.push(filaData);
+  }
+  localStorage.setItem("reservas_"+fechaActual, JSON.stringify(data));
+}
+
+// Cargar reservas de la fecha actual
+function cargarReservas(){
+  const data = JSON.parse(localStorage.getItem("reservas_"+fechaActual) || "[]");
+  const tabla = document.getElementById('tablaReservas');
+  data.forEach(filaData=>{
+    const tr = document.createElement('tr');
+    const tdNombre = document.createElement('td');
+    tdNombre.contentEditable = "true";
+    tdNombre.textContent = filaData.cliente;
+    tr.appendChild(tdNombre);
+
+    horas.forEach(h=>{
+      const td = document.createElement('td');
+      td.contentEditable = "true";
+      td.textContent = filaData[h] || "";
+      tr.appendChild(td);
+    });
+
+    const tdAccion = document.createElement('td');
+    const btnEliminar = document.createElement('button');
+    btnEliminar.textContent = "Eliminar";
+    btnEliminar.onclick = ()=>{
+      tr.remove();
+      guardarReservas();
+    }
+    tdAccion.appendChild(btnEliminar);
+    tr.appendChild(tdAccion);
+
+    tabla.appendChild(tr);
+  });
+}
+
+// Agregar fila de cliente
+function agregarFila(){
+  const nombre = document.getElementById('nombreCliente').value.trim();
+  const horaSeleccionada = document.getElementById('horaReserva').value;
+  const tipo = document.getElementById('tipoFutbol').value;
+  if(!nombre){ alert("Escribe el nombre del cliente"); return; }
+
+  const ocupa = tipo==="5"?1:(tipo==="7"?2:3);
+  const ocupadas = ocupacionHora(horaSeleccionada);
+  if(ocupadas+ocupa>totalCanchas){
+    alert("No hay disponibilidad a esta hora");
+    return;
+  }
+
+  const tabla = document.getElementById('tablaReservas');
+  const tr = document.createElement('tr');
+
+  const tdNombre = document.createElement('td');
+  tdNombre.contentEditable = "true";
+  tdNombre.textContent = nombre;
+  tr.appendChild(tdNombre);
+
+  horas.forEach(h=>{
+    const td = document.createElement('td');
+    td.contentEditable = "true";
+    if(h===horaSeleccionada) td.textContent = tipo;
+    tr.appendChild(td);
+  });
+
+  const tdAccion = document.createElement('td');
+  const btnEliminar = document.createElement('button');
+  btnEliminar.textContent = "Eliminar";
+  btnEliminar.onclick = ()=>{
+    tr.remove();
+    guardarReservas();
+  }
+  tdAccion.appendChild(btnEliminar);
+  tr.appendChild(tdAccion);
+
+  tabla.appendChild(tr);
+  document.getElementById('nombreCliente').value="";
+  guardarReservas();
+}
+</script>
+
+</body>
+</html>
